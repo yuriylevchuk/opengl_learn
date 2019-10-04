@@ -7,13 +7,20 @@
 #include <string>
 
 #include "Renderer.h"
-
 #include "VertexBuffer.h"
 #include "VertexBufferLayout.h"
 #include "IndexBuffer.h"
 #include "VertexArray.h"
 #include "Shader.h"
 #include "Texture.h"
+
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+
 
 int main(void)
 {
@@ -30,7 +37,7 @@ int main(void)
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(800, 600, "Learn OpenGL", NULL, NULL);
+	window = glfwCreateWindow(960, 540, "Learn OpenGL", NULL, NULL);
 	if (!window)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -52,10 +59,10 @@ int main(void)
 	std::cout << glGetString(GL_VERSION) << std::endl;
 	{
 		GLfloat vertices[] = {
-			-0.5f, -0.7f, 0.0f, 0.0f, // 0
-			 0.5f, -0.7f, 1.0f, 0.0f, // 1
-			 0.5f,  0.7f, 1.0f, 1.0f, // 2 
-			-0.5f,  0.7f, 0.0f, 1.0f  // 3
+		   -50.0f, -50.0f, 0.0f, 0.0f, // 0
+			50.0f, -50.0f, 1.0f, 0.0f, // 1
+			50.0f,  50.0f, 1.0f, 1.0f, // 2 
+		   -50.0f,  50.0f, 0.0f, 1.0f  // 3
 		};
 
 		unsigned int indexes[] = {
@@ -75,9 +82,12 @@ int main(void)
 
 		IndexBuffer ib(indexes, 6);
 
+		glm::mat4 proj = glm::ortho(0.0f, 960.0f, 0.0f, 540.0f, -1.0f, 1.0f);
+		glm::mat4 view = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
+
 		Shader shader("res/shaders/Basic.shader");
 		shader.Bind();
-		shader.SetUniform4f("u_Color", 0.9f, 0.5f, 0.0f, 1.0f);
+		//shader.SetUniform4f("u_Color", 0.9f, 0.5f, 0.0f, 1.0f);
 
 		Texture texture("res/textures/orange_lambda.png");
 		texture.Bind();
@@ -90,29 +100,63 @@ int main(void)
 
 		Renderer renderer;
 
+		ImGui::CreateContext();
+		ImGui_ImplGlfw_InitForOpenGL(window, true);
+		ImGui::StyleColorsDark();
+
 		GLCall(glClearColor(0.2f, 0.3f, 0.3f, 1.0f));
-		//GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));
+	/*	GLCall(glPolygonMode(GL_FRONT_AND_BACK, GL_LINE));*/
 
-		float r = 0.0f;
-		float increment = 0.05f;
-
+		//float r = 0.0f;
+		//float increment = 0.05f;
+		glm::vec3 translationA(200, 200, 0);
+		glm::vec3 translationB(400, 200, 0);
 		/* Loop until the user closes the window */
 		while (!glfwWindowShouldClose(window))
 		{
 			/* Render here */
 			renderer.Clear();
 
-			shader.Bind();
-			shader.SetUniform4f("u_Color", r, 0.5f, 0.0f, 1.0f);
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
 
-			renderer.Draw(va, ib, shader);
+			{
+				glm::mat4 model = glm::translate(glm::mat4(1.0f), translationA);
+				glm::mat4 mvp = proj * view * model;
+				shader.Bind();
+				shader.SetUniformMat4f("u_MVP", mvp);
+				renderer.Draw(va, ib, shader);
+			}
 
-			if (r > 1.0f)
-				increment = -0.05f;
-			else if (r < 0.0f)
-				increment = 0.05f;
+			{
+				glm::mat4 model = glm::translate(glm::mat4(1.0f), translationB);
+				glm::mat4 mvp = proj * view * model;
+				shader.Bind();
+				shader.SetUniformMat4f("u_MVP", mvp);
+				renderer.Draw(va, ib, shader);
 
-			r += increment;
+			}
+
+			//if (r > 1.0f)
+			//	increment = -0.05f;
+			//else if (r < 0.0f)
+			//	increment = 0.05f;
+
+			//r += increment;
+
+
+			// 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+			{
+				ImGui::Begin("Debug");
+				ImGui::SliderFloat3("Translation A", &translationA.x, 0.0f, 960.0f);
+				ImGui::SliderFloat3("Translation B", &translationB.x, 0.0f, 960.0f);
+				ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+				ImGui::End();
+			}
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			/* Swap front and back buffers */
 			glfwSwapBuffers(window);
 
@@ -120,6 +164,12 @@ int main(void)
 			glfwPollEvents();
 		}
 	}
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	glfwTerminate();
+	 
 	return 0;
 }
